@@ -17,6 +17,8 @@ KEEP = {
   daily: 7
 }
 
+REALLY = ARGV[0] == 'really'
+
 # My servers all have write-only keys, therefore this script is run from a
 # desktop machine. That's why I do 'tarsnap --fsck' before each cleanup run to
 # bring tarsnap's cache up to date.
@@ -64,6 +66,7 @@ Tarsnap = Struct.new(:key, :cache_dir) do
     files_by_date.each do |name, date|
       delete_archive name
     end
+    sync_cache
   end
 
   def list_archives
@@ -72,7 +75,7 @@ Tarsnap = Struct.new(:key, :cache_dir) do
 
   def delete_archive(name)
     puts "deleting #{name}"
-    tarsnap '-d', '-f', name if ARGV[0] == 'really'
+    tarsnap '-d', '-f', name if REALLY
   end
 
   def key
@@ -98,8 +101,23 @@ Tarsnap = Struct.new(:key, :cache_dir) do
     tarsnap '--fsck'
   end
 
+  def sync_cache
+    cmd = "rsync -az --delete #{cache_dir}/* #{host}:/usr/local/tarsnap-cache/"
+    if REALLY
+      `#{cmd}`
+    else
+      puts cmd
+    end
+  end
+
+  def host
+    basename.gsub(/-vm$/, '') + '.vm.jkraemer.net'
+  end
+
   def tarsnap(*args)
-    `tarsnap --cachedir #{cache_dir} --keyfile #{key} #{args.join(' ')}`
+    cmd = "tarsnap --cachedir #{cache_dir} --keyfile #{key} #{args.join(' ')}"
+    puts cmd unless REALLY
+    `#{cmd}`
   end
 
 end
